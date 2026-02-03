@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Registro de Ventas - Agencia</title>
+    <style>
+        body { font-family: sans-serif; background: #f4f7f6; padding: 20px; }
+        .container { max-width: 600px; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin: auto; }
+        h2 { color: #333; text-align: center; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 0.9em; }
+        input, select { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        button { width: 100%; padding: 12px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; margin-top: 20px; font-size: 1em; }
+        button:hover { background: #218838; }
+        .message { margin-top: 15px; text-align: center; padding: 10px; display: none; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Registrar Nueva Venta</h2>
+    <form id="ventaForm">
+        <div class="grid">
+            <div>
+                <label>Localizador (PNR)</label>
+                <input type="text" id="localizador" required placeholder="Ej: J1DDR">
+            </div>
+            <div>
+                <label>N° Boleto</label>
+                <input type="text" id="boleto" placeholder="TK...">
+            </div>
+            <div>
+                <label>Nombre Pasajero</label>
+                <input type="text" id="nombre" required>
+            </div>
+            <div>
+                <label>Apellido Pasajero</label>
+                <input type="text" id="apellido" required>
+            </div>
+            <div>
+                <label>Ruta</label>
+                <input type="text" id="ruta" placeholder="CCS-MAD-CCS">
+            </div>
+            <div>
+                <label>Aerolínea</label>
+                <select id="aerolinea">
+                    <option value="IBERIA">Iberia</option>
+                    <option value="ESTELAR">Estelar</option>
+                    <option value="PLUS ULTRA">Plus Ultra</option>
+                    <option value="RUTACA">Rutaca</option>
+                </select>
+            </div>
+            <div>
+                <label>Fecha Ida</label>
+                <input type="date" id="fecha_ida">
+            </div>
+            <div>
+                <label>Monto Venta ($)</label>
+                <input type="number" step="0.01" id="monto_venta" required>
+            </div>
+        </div>
+        <button type="submit">Guardar Venta</button>
+        <div id="msg" class="message"></div>
+    </form>
+</div>
+
+<script>
+    document.getElementById('ventaForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const msgDiv = document.getElementById('msg');
+        
+        // Recopilar datos
+        const datos = {
+            localizador: document.getElementById('localizador').value,
+            boleto: document.getElementById('boleto').value,
+            nombre: document.getElementById('nombre').value,
+            apellido: document.getElementById('apellido').value,
+            ruta: document.getElementById('ruta').value,
+            aerolinea: document.getElementById('aerolinea').value,
+            fecha_ida: document.getElementById('fecha_ida').value,
+            monto_venta: parseFloat(document.getElementById('monto_venta').value),
+            fecha_venta: new Date().toISOString().split('T')[0] // Fecha de hoy
+        };
+
+        try {
+            const res = await fetch('http://localhost:3306/api/boletos', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(datos)
+            });
+            const result = await res.json();
+            
+            msgDiv.style.display = 'block';
+            msgDiv.textContent = result.mensaje;
+            msgDiv.style.backgroundColor = result.exito ? '#d4edda' : '#f8d7da';
+            if(result.exito) document.getElementById('ventaForm').reset();
+        } catch (err) {
+            alert("Error de conexión con el servidor");
+        }
+    });
+</script>
+
+</body>
+</html>
