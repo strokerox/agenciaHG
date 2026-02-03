@@ -1,10 +1,11 @@
 import axios from 'axios';
 
 const api = axios.create({
-    baseURL: 'http://localhost:3306/api', // Ajusta el puerto según tu backend
+    // Reemplaza esto con la URL real que te dio Render al desplegar el backend
+    baseURL: 'agenciahg-production.up.railway.app', 
 });
 
-// Interceptor para agregar el Token a cada petición
+// Mantener el interceptor del token que creamos antes
 api.interceptors.request.use((config) => {
     const token = localStorage.getItem('token');
     if (token) {
@@ -14,3 +15,4 @@ api.interceptors.request.use((config) => {
 });
 
 export default api;
+
