@@ -1,6 +1,5 @@
 const db = require('../config/db');
 
-const db = require('../config/db'); // IMPORTANTE: Falta esta línea
 
 // CREAR NUEVA VENTA (BOLETO)
 exports.crearVenta = async (req, res) => {
