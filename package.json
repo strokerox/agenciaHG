@@ -1,15 +1,17 @@
 {
-  "name": "agencia-hg-backend",
+  "name": "backend",
   "version": "1.0.0",
-  "main": "agencia/backend/server/index.js",
+  "main": "backend/server/index.js",
   "scripts": {
-    "start": "node agencia/backend/server/index.js",
-    "dev": "nodemon agencia/backend/server/index.js"
+    "start": "node backend/server/index.js",
+    "dev": "nodemon backend/server/index.js"
   },
   "dependencies": {
+    "bcryptjs": "^3.0.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.21.0",
+    "jsonwebtoken": "^9.0.3",
     "mysql2": "^3.11.0"
   },
   "devDependencies": {
