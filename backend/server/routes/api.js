@@ -5,7 +5,7 @@ const router = express.Router();
 const authController = require('../controllers/authController');
 const ventaController = require('../controllers/ventaController'); 
 const clientesController = require('../controllers/clientesController');
-const db = require('../config/db'); // Importamos db una sola vez arriba
+const db = require('../config/db.js'); // Importamos db una sola vez arriba
 
 // --- RUTAS DE CLIENTES ---
 router.get('/clientes', clientesController.obtenerClientes);

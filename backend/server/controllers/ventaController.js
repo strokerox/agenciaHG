@@ -1,8 +1,7 @@
-const db = require('../config/db');
-
+const db = require('../config/db.js'); 
 
 // CREAR NUEVA VENTA (BOLETO)
-exports.crearVenta = async (req, res) => {
+exports.crearVenta = async function (req, res) {
     let connection;
     try {
         connection = await db.getConnection(); // Obtener una conexión del pool para la transacción
@@ -83,10 +82,10 @@ exports.crearVenta = async (req, res) => {
     } finally {
         if (connection) connection.release(); // Siempre liberar la conexión al pool
     }
-};
+}
 
 // OBTENER REPORTE (Dashboard)
-exports.obtenerVentas = async (req, res) => {
+exports.obtenerVentas = async function (req, res) {
     try {
         const query = `
             SELECT 
@@ -111,4 +110,4 @@ exports.obtenerVentas = async (req, res) => {
         console.error("Error en obtenerVentas:", error);
         res.status(500).json({ error: 'Error al obtener el reporte' });
     }
-};
+}
