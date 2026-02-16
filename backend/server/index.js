@@ -23,7 +23,7 @@ app.use((req, res, next) => {
 
 // Ruta de prueba para verificar que el servidor está online
 app.get('/', (req, res) => {
-  res.send('Servidor de Agencia HG operando correctamente 🚀');
+  res.send('Servidor de Agencia HG operando correctamente ');
 });
 
 // Uso de las rutas unificadas
