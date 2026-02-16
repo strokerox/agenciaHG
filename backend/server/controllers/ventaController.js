@@ -1,89 +1,115 @@
 const db = require('../config/db');
 
+const db = require('../config/db'); // IMPORTANTE: Falta esta línea
+
 // CREAR NUEVA VENTA (BOLETO)
 exports.crearVenta = async (req, res) => {
-  const connection = await db.getConnection(); // se usa transacción para seguridad
-  try {
-    await connection.beginTransaction();
+    let connection;
+    try {
+        connection = await db.getConnection(); // Obtener una conexión del pool para la transacción
+        await connection.beginTransaction();
 
-    const { 
-      numero_boleto, tipo, ruta, fecha_ida, fecha_retorno,
-      monto_neto, fee_emision, monto_venta, // Datos financieros
-      aerolinea_id, cliente_id, localizador // Relaciones
-    } = req.body;
+        const { 
+            numero_boleto, tipo, ruta, fecha_ida, fecha_retorno,
+            monto_neto, fee_emision, monto_venta,
+            aerolinea_id, cliente_id, localizador 
+        } = req.body;
 
-    // --- LÓGICA DE CÁLCULO AUTOMÁTICO ---
-    const neto = parseFloat(monto_neto) || 0;
-    const venta = parseFloat(monto_venta) || 0;
-    const fee = parseFloat(fee_emision) || 0;
+        // --- LÓGICA DE CÁLCULO SEGURO ---
+        const neto = parseFloat(monto_neto) || 0;
+        const venta = parseFloat(monto_venta) || 0;
+        const fee = parseFloat(fee_emision) || 0;
 
-    // 1. Calcular Utilidad (Venta Total - Costo Neto - Fee de Emisión)
-    const utilidad = venta - neto - fee;
+        // Utilidad = Venta - Costo Neto - Fee
+        // $utilidad = venta - neto - fee$
+        const utilidad = venta - neto - fee;
 
-    // 2. Calcular Comisión (Ejemplo: 20% de la utilidad)
-    const PORCENTAJE_COMISION = 0.20; 
-    const fee_comision = utilidad * PORCENTAJE_COMISION;
+        const PORCENTAJE_COMISION = 0.20; 
+        const fee_comision = utilidad * PORCENTAJE_COMISION;
 
-    // --- MANEJO DE RELACIONES (Foreign Keys) ---
-    
-    // A. Verificar/Crear Localizador en tabla RESERVAS
-    // Si el localizador no existe, lo creamos al vuelo
-    const [reservaExist] = await connection.query('SELECT * FROM reservas WHERE localizador = ?', [localizador]);
-    if (reservaExist.length === 0) {
-        await connection.query('INSERT INTO reservas (localizador, fecha_venta) VALUES (?, NOW())', [localizador]);
+        // --- MANEJO DE RELACIONES (RESERVAS) ---
+        // Verificar si el localizador existe, si no, crearlo
+        const [reservaExist] = await connection.query(
+            'SELECT localizador FROM reservas WHERE localizador = ?', 
+            [localizador]
+        );
+
+        if (reservaExist.length === 0) {
+            await connection.query(
+                'INSERT INTO reservas (localizador, fecha_venta) VALUES (?, NOW())', 
+                [localizador]
+            );
+        }
+
+        // --- INSERTAR EL BOLETO ---
+        // Limpiamos fechas: si vienen vacías, enviamos null para evitar errores de MySQL
+        const f_ida = fecha_ida || null;
+        const f_retorno = fecha_retorno || null;
+
+        const query = `
+            INSERT INTO boletos 
+            (numero_boleto, tipo, ruta, fecha_ida, fecha_retorno, 
+             monto_neto, fee_emision, monto_venta, utilidad, fee_comision,
+             aerolinea_id, cliente_id, localizador_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `;
+
+        await connection.query(query, [
+            numero_boleto, 
+            tipo || 'BOLETO', 
+            ruta, 
+            f_ida, 
+            f_retorno,
+            neto, 
+            fee, 
+            venta, 
+            utilidad, 
+            fee_comision,
+            aerolinea_id, 
+            cliente_id, 
+            localizador // Se asume que localizador_id guarda el código string
+        ]);
+
+        await connection.commit();
+        res.status(201).json({ 
+            msg: 'Venta registrada con éxito', 
+            utilidad, 
+            comision: fee_comision 
+        });
+
+    } catch (error) {
+        if (connection) await connection.rollback();
+        console.error("Error en crearVenta:", error);
+        res.status(500).json({ error: 'Error al procesar la venta', detalle: error.message });
+    } finally {
+        if (connection) connection.release(); // Siempre liberar la conexión al pool
     }
-
-    // B. Insertar el Boleto con los cálculos ya hechos
-    const query = `
-      INSERT INTO boletos 
-      (numero_boleto, tipo, ruta, fecha_ida, fecha_retorno, 
-       monto_neto, fee_emision, monto_venta, utilidad, fee_comision,
-       aerolinea_id, cliente_id, localizador_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `;
-
-    await connection.query(query, [
-      numero_boleto, tipo || 'BOLETO', ruta, fecha_ida, fecha_retorno,
-      neto, fee, venta, utilidad, fee_comision,
-      aerolinea_id, cliente_id, localizador
-    ]);
-
-    await connection.commit();
-    res.status(201).json({ msg: 'Venta registrada con éxito', utilidad, comision: fee_comision });
-
-  } catch (error) {
-    await connection.rollback(); // Si falla algo, deshace todos los cambios
-    console.error(error);
-    res.status(500).json({ error: 'Error al procesar la venta' });
-  } finally {
-    connection.release();
-  }
 };
 
-// OBTENER REPORTE (Para el Dashboard)
+// OBTENER REPORTE (Dashboard)
 exports.obtenerVentas = async (req, res) => {
-  try {
-    // Esta consulta replica el SELECT final de tu archivo SQL
-    const query = `
-      SELECT 
-        b.id_transaccion,
-        r.localizador,
-        b.numero_boleto,
-        CONCAT(c.nombre, ' ', c.apellido) as pasajero,
-        a.nombre as aerolinea,
-        b.ruta,
-        b.monto_venta,
-        b.utilidad,
-        b.fee_comision
-      FROM boletos b
-      JOIN clientes c ON b.cliente_id = c.id_cliente
-      JOIN aerolineas a ON b.aerolinea_id = a.id_aerolinea
-      JOIN reservas r ON b.localizador_id = r.localizador
-      ORDER BY b.id_transaccion DESC
-    `;
-    const [ventas] = await db.query(query);
-    res.json(ventas);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
+    try {
+        const query = `
+            SELECT 
+                b.id_transaccion,
+                r.localizador,
+                b.numero_boleto,
+                CONCAT(c.nombre, ' ', c.apellido) as pasajero,
+                a.nombre as aerolinea,
+                b.ruta,
+                b.monto_venta,
+                b.utilidad,
+                b.fee_comision
+            FROM boletos b
+            LEFT JOIN clientes c ON b.cliente_id = c.id_cliente
+            LEFT JOIN aerolineas a ON b.aerolinea_id = a.id_aerolinea
+            LEFT JOIN reservas r ON b.localizador_id = r.localizador
+            ORDER BY b.id_transaccion DESC
+        `;
+        const [ventas] = await db.query(query);
+        res.json(ventas);
+    } catch (error) {
+        console.error("Error en obtenerVentas:", error);
+        res.status(500).json({ error: 'Error al obtener el reporte' });
+    }
 };
